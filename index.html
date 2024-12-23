@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>分帳計算器</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f0f0f0;
+        }
+
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .input-section {
+            margin-bottom: 20px;
+        }
+
+        input, button, select {
+            padding: 8px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        .result {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+
+        .error {
+            color: red;
+            margin-top: 10px;
+        }
+
+        .people-inputs {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .person-input {
+            display: flex;
+            align-items: center;
+        }
+
+        /* 新增的樣式 */
+        .expense-list {
+            margin: 20px 0;
+        }
+
+        .expense-item {
+            background-color: #f8f8f8;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .expense-form {
+            background-color: #f5f5f5;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+
+        .transfer-instructions {
+            background-color: #e8f5e9;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 20px;
+        }
+
+        .delete-btn {
+            background-color: #ff5252;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .tab-container {
+            margin-bottom: 20px;
+        }
+
+        .tab-button {
+            padding: 10px 20px;
+            margin-right: 5px;
+            background-color: #ddd;
+            border: none;
+            border-radius: 4px 4px 0 0;
+            cursor: pointer;
+        }
+
+        .tab-button.active {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>分帳計算器</h1>
+
+        <div class="tab-container">
+            <button class="tab-button active" onclick="showTab('people')">設置成員</button>
+            <button class="tab-button" onclick="showTab('expenses')">管理帳目</button>
+            <button class="tab-button" onclick="showTab('result')">查看結果</button>
+        </div>
+
+        <div id="peopleTab" class="tab-content active">
+            <div class="input-section">
+                <label for="numberOfPeople">人數 (2-20人):</label>
+                <input type="number" id="numberOfPeople" min="2" max="20" value="2">
+                <button onclick="updatePeopleInputs()">設置人數</button>
+            </div>
+            <div id="peopleInputs" class="people-inputs"></div>
+            <button onclick="savePeople()">儲存成員</button>
+        </div>
+
+        <div id="expensesTab" class="tab-content">
+            <div class="expense-form">
+                <h3>新增帳目</h3>
+                <input type="text" id="expenseTitle" placeholder="帳目名稱">
+                <input type="number" id="expenseAmount" placeholder="金額" min="0" step="0.01">
+                <select id="expensePayer"></select>
+                <button onclick="addExpense()">新增帳目</button>
+            </div>
+            <div id="expensesList" class="expense-list"></div>
+        </div>
+
+        <div id="resultTab" class="tab-content">
+            <button onclick="calculateSplit()">計算分帳</button>
+            <div id="result" class="result"></div>
+            <div id="transferInstructions" class="transfer-instructions"></div>
+        </div>
+    </div>
+
+    <script>
+        let people = [];
+        let expenses = [];
+
+        function showTab(tabName) {
+            // 隱藏所有標籤內容
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
+            document.querySelectorAll('.tab-button').forEach(button => button.classList.remove('active'));
+            
+            // 顯示選中的標籤
+            document.getElementById(tabName + 'Tab').classList.add('active');
+            document.querySelector(`button[onclick="showTab('${tabName}')"]`).classList.add('active');
+        }
+
+        function updatePeopleInputs() {
+            const numberOfPeople = parseInt(document.getElementById('numberOfPeople').value);
+            const peopleInputs = document.getElementById('peopleInputs');
+            peopleInputs.innerHTML = '';
+
+            if (numberOfPeople < 2 || numberOfPeople > 20) {
+                alert('請輸入2-20之間的人數');
+                return;
+            }
+
+            for (let i = 0; i < numberOfPeople; i++) {
+                const personDiv = document.createElement('div');
+                personDiv.className = 'person-input';
+                personDiv.innerHTML = `
+                    <input type="text" placeholder="姓名 ${i + 1}" class="name-input">
+                `;
+                peopleInputs.appendChild(personDiv);
+            }
+        }
+
+        function savePeople() {
+            const nameInputs = document.querySelectorAll('.name-input');
+            people = [];
+
+            for (let i = 0; i < nameInputs.length; i++) {
+                const name = nameInputs[i].value.trim();
+                if (!name) {
+                    alert(`請輸入第 ${i + 1} 位的姓名`);
+                    return;
+                }
+                people.push({ name, totalPaid: 0 });
+            }
+
+            updatePayerSelect();
+            alert('成員儲存成功！');
+            showTab('expenses');
+        }
+
+        function updatePayerSelect() {
+            const payerSelect = document.getElementById('expensePayer');
+            payerSelect.innerHTML = '';
+            people.forEach((person, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = person.name;
+                payerSelect.appendChild(option);
+            });
+        }
+
+        function addExpense() {
+            const title = document.getElementById('expenseTitle').value.trim();
+            const amount = parseFloat(document.getElementById('expenseAmount').value);
+            const payerIndex = document.getElementById('expensePayer').value;
+
+            if (!title || isNaN(amount) || amount <= 0) {
+                alert('請填寫完整的帳目資訊');
+                return;
+            }
+
+            const expense = {
+                title,
+                amount,
+                payer: people[payerIndex].name
+            };
+
+            expenses.push(expense);
+            people[payerIndex].totalPaid += amount;
+
+            updateExpensesList();
+            clearExpenseForm();
+        }
+
+        function clearExpenseForm() {
+            document.getElementById('expenseTitle').value = '';
+            document.getElementById('expenseAmount').value = '';
+        }
+
+        function updateExpensesList() {
+            const expensesList = document.getElementById('expensesList');
+            expensesList.innerHTML = '<h3>帳目清單</h3>';
+
+            expenses.forEach((expense, index) => {
+                const expenseDiv = document.createElement('div');
+                expenseDiv.className = 'expense-item';
+                expenseDiv.innerHTML = `
+                    <div>
+                        <strong>${expense.title}</strong>
+                        <span>${expense.amount} 元 (由 ${expense.payer} 支付)</span>
+                    </div>
+                    <button class="delete-btn" onclick="deleteExpense(${index})">刪除</button>
+                `;
+                expensesList.appendChild(expenseDiv);
+            });
+        }
+
+        function deleteExpense(index) {
+            const expense = expenses[index];
+            const payer = people.find(p => p.name === expense.payer);
+            payer.totalPaid -= expense.amount;
+            expenses.splice(index, 1);
+            updateExpensesList();
+        }
+
+        function calculateSplit() {
+            if (expenses.length === 0) {
+                alert('請先新增帳目');
+                return;
+            }
+
+            const totalAmount = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+            const averageAmount = totalAmount / people.length;
+
+            let resultHTML = `
+                <h3>分帳結果</h3>
+                <p>總金額: ${totalAmount.toFixed(2)} 元</p>
+                <p>每人平均: ${averageAmount.toFixed(2)} 元</p>
+                <h4>付款狀況:</h4>
+            `;
+
+            people.forEach(person => {
+                const balance = person.totalPaid - averageAmount;
+                if (balance > 0) {
+                    resultHTML += `<p>${person.name} 已付 ${person.totalPaid.toFixed(2)} 元，應收回 ${balance.toFixed(2)} 元</p>`;
+                } else {
+                    resultHTML += `<p>${person.name} 已付 ${person.totalPaid.toFixed(2)} 元，需補付 ${(-balance).toFixed(2)} 元</p>`;
+                }
+            });
+
+            document.getElementById('result').innerHTML = resultHTML;
+            calculateTransfers();
+        }
+
+        function calculateTransfers() {
+            const averageAmount = expenses.reduce((sum, expense) => sum + expense.amount, 0) / people.length;
+            let debtors = people.filter(p => p.totalPaid < averageAmount)
+                .map(p => ({
+                    name: p.name,
+                    amount: averageAmount - p.totalPaid
+                }));
+            let creditors = people.filter(p => p.totalPaid > averageAmount)
+                .map(p => ({
+                    name: p.name,
+                    amount: p.totalPaid - averageAmount
+                }));
+
+            let instructions = '<h4>轉帳說明:</h4>';
+            
+            while (debtors.length > 0 && creditors.length > 0) {
+                const debtor = debtors[0];
+                const creditor = creditors[0];
+                const transferAmount = Math.min(debtor.amount, creditor.amount);
+                
+                instructions += `<p>${debtor.name} 應支付 ${transferAmount.toFixed(2)} 元給 ${creditor.name}</p>`;
+                
+                debtor.amount -= transferAmount;
+                creditor.amount -= transferAmount;
+                
+                if (debtor.amount < 0.01) debtors.shift();
+                if (creditor.amount < 0.01) creditors.shift();
+            }
+
+            document.getElementById('transferInstructions').innerHTML = instructions;
+        }
+
+        // 初始化頁面
+        updatePeopleInputs();
+    </script>
+</body>
+</html>
